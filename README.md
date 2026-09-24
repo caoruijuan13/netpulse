@@ -6,9 +6,9 @@ The project combines network performance testing with hands-on small-model devel
 
 ## Current status
 
-The project currently contains a Python package skeleton and a [TODO](TODO.md). Data collection, training, evaluation, and live prediction have not been implemented. There is no runnable prediction demo or model performance result yet.
+M0 is complete: the [M0-v1 experiment specification](docs/experiment-spec.md), [raw data contract](docs/data-contract.md), and [collection procedure](docs/pilot-plan.md) are frozen for new controlled sessions. Exploratory sessions for all four scenarios—idle, upload, download, and burst—are reviewed in the [pilot observations](docs/pilot-observations.md). The pilot data are not an untouched held-out test set. Formal data collection, training, evaluation, and live prediction have not been completed; there is no model performance result yet.
 
-The first stage will define the prediction task. One candidate is to use the previous 60 seconds of observations to predict RTT P95 over the next 60 seconds. The sampling rate, metric definition, probing method, and evaluation criteria will be decided in M0. These time windows are a starting proposal, not a validated optimum.
+M0-v1 uses the previous 60 seconds of observations to predict successful-reply RTT P95 over the next 60 seconds. Its measurement and window rules are frozen for the next collection phase, but the time windows are a starting design, not a validated optimum.
 
 ## Planned workflow
 
@@ -22,8 +22,8 @@ Training, validation, and test sets will be split by complete experiment session
 
 ## Experiment setup
 
-- **MacBook:** Primary development machine for data collection, processing, training, and offline inference.
-- **Older Windows PC:** An on-demand, controlled network test endpoint for data collection and live validation.
+- **MacBook on Ethernet:** Primary development machine for data collection, processing, training, and offline inference.
+- **Older Windows PC on Wi-Fi:** An on-demand, controlled network test endpoint for data collection and live validation.
 - **Local router or access point:** Connects the two machines for network experiments.
 
 Offline training and data replay require only the MacBook. Live network experiments also require a controlled test endpoint. A dedicated GPU or continuously running server is not required at this stage.
@@ -32,9 +32,10 @@ Offline training and data replay require only the MacBook. Live network experime
 
 ```text
 netpulse/
-├── configs/          # Planned experiment configurations
-├── src/netpulse/     # Planned project code
-├── tests/            # Planned tests
+├── configs/          # Historical pilot and frozen M0-v1 parameters
+├── docs/             # M0 experiment, data, and pilot specifications
+├── src/netpulse/     # Pilot collector and burst generator; later model code
+├── tests/            # Pilot tool tests; later model tests
 ├── TODO.md           # Stages and tasks
 └── pyproject.toml    # Python project metadata
 ```

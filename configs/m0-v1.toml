@@ -1,0 +1,47 @@
+# Frozen M0-v1 measurement and window settings for new formal sessions.
+# Pilot-v0 data and configs/pilot.toml remain unchanged.
+[experiment]
+id = "m0-v1"
+status = "frozen"
+probe_protocol = "icmp_echo"
+probe_payload_bytes = 56
+probe_interval_seconds = 1.0
+probe_timeout_ms = 800
+max_start_lateness_ms = 250
+session_duration_seconds = 900
+warmup_seconds = 60
+
+[topology]
+source_link = "ethernet" # MacBook collector
+target_link = "wifi"      # Windows PC probe target
+
+[prediction]
+history_samples = 60
+future_samples = 60
+window_stride_samples = 10
+minimum_successful_probes = 57
+target_percentile = 95
+percentile_method = "nearest_rank"
+
+# Required by the current collector; formal session counts are decided in M1.
+[pilot]
+scenarios = ["idle", "upload", "download", "burst"]
+sessions_per_scenario = 1
+
+# Rates are calibrated separately by direction with the same TCP flow profile
+# that will be used for the sustained load. Download uses four flows.
+[load]
+calibration_runs_per_direction = 3
+calibration_run_seconds = 30
+sustained_rate_fraction = 0.70
+burst_rate_fraction = 0.90
+upload_parallel_streams = 1
+download_parallel_streams = 4
+
+[burst]
+duration_seconds = 930
+start_delay_seconds = 30
+on_min_seconds = 10
+on_max_seconds = 20
+off_min_seconds = 20
+off_max_seconds = 40

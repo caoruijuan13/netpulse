@@ -2,15 +2,19 @@
 
 ## M0 — Define the experiment
 
-- [ ] Specify the prediction target, observation window, forecast horizon, and sampling rate.
-- [ ] Define telemetry fields, units, timestamps, missing-value rules, and session metadata.
-- [ ] Define session-level train/validation/test splits and evaluation metrics.
-- [ ] Document the MacBook and Windows PC roles for local-network experiments.
+- [x] Draft the prediction target, windows, probe cadence, and timeout in [the experiment spec](docs/experiment-spec.md).
+- [x] Draft raw fields, units, timestamps, missing-value rules, and session metadata in [the data contract](docs/data-contract.md).
+- [x] Draft session-level split rules, baselines, and evaluation metrics.
+- [x] Document device roles and [the pilot procedure](docs/pilot-plan.md).
+- [x] Run and review exploratory idle, upload, download, and burst sessions in [pilot observations](docs/pilot-observations.md).
+- [x] Resolve pilot quality findings and freeze the versioned [M0-v1 specification](docs/experiment-spec.md) before formal collection.
 
 ## M1 — Collect and inspect data
 
-- [ ] Build a collector for the MacBook and a controlled test endpoint on the Windows PC.
-- [ ] Record independent sessions across idle, upload, download, and burst-traffic scenarios.
+- [x] Build the MacBook ICMP pilot collector from the M0 data contract.
+- [x] Add a logged Mac-to-PC burst load generator and define profile-specific rate calibration rules.
+- [ ] Verify the Windows PC as a controlled ICMP test endpoint and prepare traffic generation.
+- [ ] Record quality-checked formal sessions across idle, upload, download, and burst-traffic scenarios.
 - [ ] Validate raw data and produce a distribution and quality report.
 
 ## M2 — Establish baselines
