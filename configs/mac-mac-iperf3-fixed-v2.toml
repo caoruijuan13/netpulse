@@ -1,0 +1,45 @@
+# Frozen fixed-sender-target protocol selected before formal v2 collection.
+# Earlier v1 and both draft fixed-rate pilots remain separate experiments.
+[experiment]
+id = "mac-mac-iperf3-fixed-v2"
+status = "frozen"
+probe_protocol = "icmp_echo"
+probe_payload_bytes = 56
+probe_interval_seconds = 1.0
+probe_timeout_ms = 800
+max_start_lateness_ms = 250
+session_duration_seconds = 900
+warmup_seconds = 0
+
+[topology]
+source_link = "wifi"
+target_link = "ethernet"
+
+[prediction]
+history_samples = 60
+future_samples = 60
+window_stride_samples = 10
+minimum_successful_probes = 57
+target_percentile = 95
+percentile_method = "nearest_rank"
+
+[pilot]
+# Historical schema key: this is the formal 32-session plan, not a pilot.
+scenarios = ["idle", "upload", "download", "burst"]
+sessions_per_scenario = 8
+
+[load]
+traffic_tool = "iperf3"
+upload_parallel_streams = 1
+download_parallel_streams = 1
+upload_target_bps = 360000000
+download_target_bps = 300000000
+burst_target_bps = 460000000
+
+[burst]
+duration_seconds = 900
+start_delay_seconds = 30
+on_min_seconds = 10
+on_max_seconds = 20
+off_min_seconds = 20
+off_max_seconds = 40

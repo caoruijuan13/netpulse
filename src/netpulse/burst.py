@@ -1,4 +1,4 @@
-"""Generate logged, reproducible Mac-to-PC TCP bursts with iperf2."""
+"""Generate logged, reproducible Wi-Fi-to-Ethernet Mac TCP bursts with iperf3."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ import math
 import platform
 import random
 import shutil
+import signal
 import subprocess
 import sys
 import time
@@ -22,7 +23,7 @@ from typing import Any, TextIO
 from netpulse.collect import local_ipv4, utc_now, write_metadata
 
 
-BURST_VERSION = "m0-burst-3"
+BURST_VERSION = "mac-mac-iperf3-burst-3"
 IPERF_LOG_NAME = "iperf.log"
 
 
@@ -34,7 +35,8 @@ class BurstConfig:
     on_max_seconds: int
     off_min_seconds: int
     off_max_seconds: int
-    rate_fraction: float
+    rate_fraction: float | None
+    fixed_target_bps: int | None = None
 
 
 def _integer(value: Any, name: str, *, minimum: int) -> int:
@@ -57,9 +59,23 @@ def load_burst_config(path: Path, overrides: argparse.Namespace) -> BurstConfig:
     with path.open("rb") as file:
         data = tomllib.load(file)
     burst = data["burst"]
-    fraction = data["load"]["burst_rate_fraction"]
-    if isinstance(fraction, bool) or not isinstance(fraction, (int, float)) or not math.isfinite(fraction) or not 0 < fraction <= 1:
-        raise ValueError("load.burst_rate_fraction must be between 0 and 1")
+    if data["load"].get("traffic_tool") != "iperf3":
+        raise ValueError("burst generator requires an iperf3 experiment config")
+    if (data["topology"].get("source_link"), data["topology"].get("target_link")) != ("wifi", "ethernet"):
+        raise ValueError("burst generator requires the Wi-Fi collector to Ethernet target topology")
+    if data["load"].get("upload_parallel_streams") != 1:
+        raise ValueError("burst generator requires a one-stream upload profile")
+    load = data["load"]
+    fixed_target_bps = load.get("burst_target_bps")
+    if fixed_target_bps is not None:
+        fixed_target_bps = _integer(fixed_target_bps, "load.burst_target_bps", minimum=1)
+        if "burst_rate_fraction" in load:
+            raise ValueError("configure either burst_target_bps or burst_rate_fraction, not both")
+        fraction = None
+    else:
+        fraction = load["burst_rate_fraction"]
+        if isinstance(fraction, bool) or not isinstance(fraction, (int, float)) or not math.isfinite(fraction) or not 0 < fraction <= 1:
+            raise ValueError("load.burst_rate_fraction must be between 0 and 1")
 
     def setting(name: str, minimum: int) -> int:
         override = getattr(overrides, name)
@@ -72,12 +88,15 @@ def load_burst_config(path: Path, overrides: argparse.Namespace) -> BurstConfig:
         on_max_seconds=setting("on_max_seconds", 1),
         off_min_seconds=setting("off_min_seconds", 1),
         off_max_seconds=setting("off_max_seconds", 1),
-        rate_fraction=float(fraction),
+        rate_fraction=float(fraction) if fraction is not None else None,
+        fixed_target_bps=fixed_target_bps,
     )
     if config.on_min_seconds > config.on_max_seconds or config.off_min_seconds > config.off_max_seconds:
         raise ValueError("burst minimum durations must not exceed maximum durations")
     if config.start_delay_seconds + config.on_min_seconds > config.duration_seconds:
         raise ValueError("burst duration is too short for one pulse")
+    if config.duration_seconds > data["experiment"]["session_duration_seconds"]:
+        raise ValueError("burst duration must not exceed the collector session duration")
     return config
 
 
@@ -100,14 +119,14 @@ def plan_bursts(config: BurstConfig, seed: int) -> list[dict[str, int]]:
     return planned
 
 
-def iperf2_path(candidate: str) -> tuple[str, str]:
+def iperf3_path(candidate: str) -> tuple[str, str]:
     path = shutil.which(candidate)
     if path is None:
         raise ValueError(f"iperf executable not found: {candidate}")
     version = subprocess.run([path, "--version"], capture_output=True, text=True, timeout=5, check=False)
     version_text = (version.stdout + " " + version.stderr).strip()
-    if version.returncode != 0 or not version_text.startswith("iperf version 2."):
-        raise ValueError("burst generator requires iperf2 on the MacBook")
+    if version.returncode != 0 or not version_text.startswith("iperf 3."):
+        raise ValueError("burst generator requires iperf3 on the Wi-Fi MacBook")
     return path, version_text
 
 
@@ -136,14 +155,20 @@ def send_pulse(command: list[str], log: TextIO, on_seconds: int) -> tuple[int | 
 
 def run_bursts(args: argparse.Namespace, config: BurstConfig) -> tuple[Path, str]:
     if platform.system() != "Darwin":
-        raise ValueError("this Mac-to-PC burst generator supports macOS only")
-    path, version = iperf2_path(args.iperf_path)
-    rate_bps = round(args.capacity_mbps * 1_000_000 * config.rate_fraction)
+        raise ValueError("this Mac-to-Mac burst generator supports macOS only")
+    if not 1 <= args.port <= 65535:
+        raise ValueError("iperf3 port must be between 1 and 65535")
+    path, version = iperf3_path(args.iperf_path)
+    if config.fixed_target_bps is not None:
+        if args.capacity_mbps is not None:
+            raise ValueError("capacity_mbps is not used by a fixed-rate burst config")
+        rate_bps = config.fixed_target_bps
+    else:
+        if args.capacity_mbps is None or config.rate_fraction is None:
+            raise ValueError("capacity_mbps is required by a capacity-fraction burst config")
+        rate_bps = round(args.capacity_mbps * 1_000_000 * config.rate_fraction)
     if rate_bps < 1:
-        raise ValueError("calibrated target rate is less than 1 bit/s")
-    if rate_bps < 16_384:
-        raise ValueError("calibrated target rate is too low for a 1 KiB iperf2 write buffer")
-    write_buffer_bytes = min(131_072, rate_bps // 16)
+        raise ValueError("target rate is less than 1 bit/s")
     planned = plan_bursts(config, args.seed)
     run_id = "burst-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
     run_dir = args.output_root / run_id
@@ -156,16 +181,18 @@ def run_bursts(args: argparse.Namespace, config: BurstConfig) -> tuple[Path, str
         "started_at_utc": utc_now(),
         "ended_at_utc": None,
         "target_address": args.target,
-        "direction": "mac_to_pc",
-        "traffic_tool": "iperf2",
+        "target_port": args.port,
+        "direction": "wifi_to_ethernet",
+        "traffic_tool": "iperf3",
         "traffic_tool_version": version,
         "generator_version": BURST_VERSION,
         "generator_source_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "config_source_sha256": hashlib.sha256(args.config.read_bytes()).hexdigest(),
+        "rate_policy": "fixed_sender_target" if config.fixed_target_bps is not None else "capacity_fraction",
         "capacity_mbps": args.capacity_mbps,
         "rate_fraction": config.rate_fraction,
         "target_rate_bps": rate_bps,
-        "write_buffer_bytes": write_buffer_bytes,
+        "parallel_streams": 1,
         "seed": args.seed,
         "duration_seconds": config.duration_seconds,
         "start_delay_seconds": config.start_delay_seconds,
@@ -180,8 +207,8 @@ def run_bursts(args: argparse.Namespace, config: BurstConfig) -> tuple[Path, str
     write_metadata(metadata_path, metadata)
     print(f"Burst run {run_id}; logs: {run_dir}", flush=True)
     command_base = [
-        path, "-c", args.target, "-b", str(rate_bps),
-        "-l", str(write_buffer_bytes), "-i", "1",
+        path, "-c", args.target, "-p", str(args.port), "-b", str(rate_bps),
+        "-P", "1", "-i", "1", "--get-server-output",
     ]
     status = "completed"
     start_ns = time.monotonic_ns()
@@ -263,11 +290,12 @@ def run_bursts(args: argparse.Namespace, config: BurstConfig) -> tuple[Path, str
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--config", type=Path, default=Path("configs/pilot.toml"))
-    parser.add_argument("--target", type=local_ipv4, required=True, help="local Windows PC IPv4 address")
-    parser.add_argument("--capacity-mbps", type=positive_float, required=True, help="measured Mac-to-PC TCP capacity")
+    parser.add_argument("--config", type=Path, default=Path("configs/mac-mac-iperf3-pilot-v1.toml"))
+    parser.add_argument("--target", type=local_ipv4, required=True, help="Ethernet MacBook local IPv4 address")
+    parser.add_argument("--port", type=int, default=5201, help="Ethernet MacBook iperf3 server port (default: 5201)")
+    parser.add_argument("--capacity-mbps", type=positive_float, help="measured one-stream Wi-Fi-to-Ethernet iperf3 capacity, for fraction-based configs")
     parser.add_argument("--seed", type=int, required=True, help="recorded seed for the pulse schedule")
-    parser.add_argument("--iperf-path", default="iperf", help="path to the MacBook iperf2 executable")
+    parser.add_argument("--iperf-path", default="iperf3", help="path to the Wi-Fi MacBook iperf3 executable")
     parser.add_argument("--output-root", type=Path, default=Path("data/load"))
     for name in (
         "duration_seconds", "start_delay_seconds", "on_min_seconds", "on_max_seconds",
@@ -278,12 +306,18 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def main(argv: list[str] | None = None) -> int:
+    def interrupt_on_term(_signum: int, _frame: Any) -> None:
+        raise KeyboardInterrupt
+
+    previous_term_handler = signal.signal(signal.SIGTERM, interrupt_on_term)
     try:
         args = parse_args(argv)
         run_dir, status = run_bursts(args, load_burst_config(args.config, args))
     except (OSError, ValueError, KeyError, TypeError, subprocess.TimeoutExpired) as exc:
         print(f"burst generation error: {exc}", file=sys.stderr)
         return 1
+    finally:
+        signal.signal(signal.SIGTERM, previous_term_handler)
     print(f"Burst run {status}; logs: {run_dir}")
     return 0 if status == "completed" else 130 if status == "interrupted" else 1
 

@@ -6,9 +6,13 @@ The project combines network performance testing with hands-on small-model devel
 
 ## Current status
 
-M0 is complete: the [M0-v1 experiment specification](docs/experiment-spec.md), [raw data contract](docs/data-contract.md), and [collection procedure](docs/pilot-plan.md) are frozen for new controlled sessions. Exploratory sessions for all four scenarios—idle, upload, download, and burst—are reviewed in the [pilot observations](docs/pilot-observations.md). The pilot data are not an untouched held-out test set. Formal data collection, training, evaluation, and live prediction have not been completed; there is no model performance result yet.
+M0 is complete for the original Windows/iperf2 setup: its [M0-v1 experiment specification](docs/experiment-spec.md), [raw data contract](docs/data-contract.md), and [collection procedure](docs/pilot-plan.md) remain frozen for that setup. Exploratory sessions for all four scenarios—idle, upload, download, and burst—are reviewed in the [pilot observations](docs/pilot-observations.md). The pilot data are not an untouched held-out test set. Formal data collection, training, evaluation, and live prediction have not been completed; there is no model performance result yet.
 
-M0-v1 uses the previous 60 seconds of observations to predict successful-reply RTT P95 over the next 60 seconds. Its measurement and window rules are frozen for the next collection phase, but the time windows are a starting design, not a validated optimum.
+M0-v1 uses the previous 60 seconds of observations to predict successful-reply RTT P95 over the next 60 seconds. Those rules remain frozen for the historical Windows topology. The separate [two-MacBook formal v1 protocol](docs/mac-mac-iperf3-formal-v1.md) is now frozen for the new path, with no discarded warm-up and a preassigned 32-session collection plan. No formal sessions or model results have been collected yet.
+
+A separate [two-MacBook iperf3 pilot](docs/mac-mac-iperf3-pilot-v1.md) established the current collection setup: the development MacBook collects on Wi-Fi and the older MacBook responds/serves on Ethernet. Idle, upload, download, and burst trial sessions have been reviewed. The Wi-Fi-path idle RTT tail persisted across repeats and is a documented property of this setup, not a reason to relabel those observations. Previously associated 571 and 882 Mbit/s figures are not throughput from idle runs; their source remains unverified. The historical Windows/iperf2 M0-v1 and the opposite-link two-Mac draft remain intact.
+
+The [formal collection wrapper](scripts/mac_mac_iperf3_formal.sh) uses the frozen configuration and requires a preassigned slot ID. The pilot [calibration and loaded-trial helper](scripts/mac_mac_iperf3_trial.sh) remains available for exploratory runs. Run a new two-direction calibration before formal loaded sessions; historical throughput figures are not their target rates.
 
 ## Planned workflow
 
@@ -22,8 +26,8 @@ Training, validation, and test sets will be split by complete experiment session
 
 ## Experiment setup
 
-- **MacBook on Ethernet:** Primary development machine for data collection, processing, training, and offline inference.
-- **Older Windows PC on Wi-Fi:** An on-demand, controlled network test endpoint for data collection and live validation.
+- **Newer MacBook on Wi-Fi:** Development machine for data collection, traffic generation, training, and offline inference in the current pilot.
+- **2015 Intel MacBook on Ethernet:** ICMP responder and iperf3 server in the current pilot; the older Windows PC remains the historical M0 pilot endpoint.
 - **Local router or access point:** Connects the two machines for network experiments.
 
 Offline training and data replay require only the MacBook. Live network experiments also require a controlled test endpoint. A dedicated GPU or continuously running server is not required at this stage.
@@ -32,9 +36,10 @@ Offline training and data replay require only the MacBook. Live network experime
 
 ```text
 netpulse/
-├── configs/          # Historical pilot and frozen M0-v1 parameters
+├── configs/          # Historical M0-v1, two-MacBook pilot, and frozen formal parameters
 ├── docs/             # M0 experiment, data, and pilot specifications
-├── src/netpulse/     # Pilot collector and burst generator; later model code
+├── scripts/          # Two-MacBook pilot and formal collection helpers
+├── src/netpulse/     # Pilot collector and iperf3 burst generator; later model code
 ├── tests/            # Pilot tool tests; later model tests
 ├── TODO.md           # Stages and tasks
 └── pyproject.toml    # Python project metadata

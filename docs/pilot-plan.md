@@ -2,6 +2,8 @@
 
 Status: **exploratory pilot completed; M0-v1 frozen**. Idle, upload, download, and burst sessions have been collected with the MacBook on Ethernet and the Windows PC on Wi-Fi. See [pilot-observations.md](pilot-observations.md) for quality findings. This page retains pilot instructions and gives the frozen procedure for later controlled collection. Pilot data are not a model benchmark.
 
+The commands below document the historical **iperf2** procedure. The current `netpulse.burst` implementation has moved to the separate [two-MacBook iperf3 pilot](mac-mac-iperf3-pilot-v1.md); use the historical code revision to rerun this page's iperf2 burst command. Do not combine its load settings or raw sessions with the new pilot.
+
 ## Before each session
 
 1. Connect the MacBook over Ethernet and the Windows PC over Wi-Fi to the same local router/AP. Keep both on power and awake. Confirm the MacBook can reach the PC's chosen address and that ICMP Echo replies are permitted.

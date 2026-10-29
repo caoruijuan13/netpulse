@@ -12,8 +12,14 @@
 ## M1 — Collect and inspect data
 
 - [x] Build the MacBook ICMP pilot collector from the M0 data contract.
-- [x] Add a logged Mac-to-PC burst load generator and define profile-specific rate calibration rules.
-- [ ] Verify the Windows PC as a controlled ICMP test endpoint and prepare traffic generation.
+- [x] Build a logged burst load generator; historical M0 used iperf2 and the draft two-MacBook pilot uses iperf3.
+- [x] Prepare scripts for two-direction iperf3 calibration and paired upload/download/burst pilot runs.
+- [x] Review two 900-second idle sessions; no iperf3 client ran, and the target only had an iperf3 server listening. Preserve their RTTs.
+- [x] Separate the unverified 571/882 Mbit/s topology figures from these idle sessions; they were not produced by the idle runs.
+- [x] Repeat Wi-Fi-path idle without the iperf3 server; the RTT tail persists and all 900 probes succeeded.
+- [x] Document the Wi-Fi-path idle RTT tail as a persistent observation; do not claim a controlled low-latency Wi-Fi reference.
+- [x] Calibrate both directions and review upload, download, and burst sessions in the [two-MacBook pilot](docs/mac-mac-iperf3-pilot-v1.md).
+- [x] Review load adherence and probe/window quality; freeze the separate [two-MacBook formal v1 protocol](docs/mac-mac-iperf3-formal-v1.md) before collection.
 - [ ] Record quality-checked formal sessions across idle, upload, download, and burst-traffic scenarios.
 - [ ] Validate raw data and produce a distribution and quality report.
 

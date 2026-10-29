@@ -59,6 +59,12 @@ def _positive_int(value: Any, name: str) -> int:
     return value
 
 
+def _nonnegative_int(value: Any, name: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError(f"{name} must be a non-negative integer")
+    return value
+
+
 def load_config(path: Path) -> PilotConfig:
     with path.open("rb") as file:
         data = tomllib.load(file)
@@ -101,7 +107,7 @@ def load_config(path: Path) -> PilotConfig:
     if target_percentile > 100 or prediction["percentile_method"] != "nearest_rank":
         raise ValueError("only a nearest-rank percentile between 1 and 100 is supported")
     duration_seconds = _positive_int(experiment["session_duration_seconds"], "session_duration_seconds")
-    warmup_seconds = _positive_int(experiment["warmup_seconds"], "warmup_seconds")
+    warmup_seconds = _nonnegative_int(experiment["warmup_seconds"], "warmup_seconds")
     if warmup_seconds >= duration_seconds:
         raise ValueError("warmup_seconds must be shorter than session_duration_seconds")
     _positive_int(pilot["sessions_per_scenario"], "sessions_per_scenario")

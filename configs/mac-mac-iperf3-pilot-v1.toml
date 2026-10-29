@@ -1,0 +1,46 @@
+# Draft two-MacBook iperf3 pilot: new MacBook collects on Wi-Fi,
+# 2015 Intel MacBook responds and serves iperf3 on Ethernet.
+# Do not modify historical pilot-v0 or M0-v1 configurations.
+[experiment]
+id = "mac-mac-iperf3-pilot-v1"
+status = "draft"
+probe_protocol = "icmp_echo"
+probe_payload_bytes = 56
+probe_interval_seconds = 1.0
+probe_timeout_ms = 800
+max_start_lateness_ms = 250
+session_duration_seconds = 900
+warmup_seconds = 0
+
+[topology]
+source_link = "wifi"      # New MacBook: collector and iperf3 client
+target_link = "ethernet"  # 2015 MacBook: ICMP responder and iperf3 server
+
+[prediction]
+history_samples = 60
+future_samples = 60
+window_stride_samples = 10
+minimum_successful_probes = 57
+target_percentile = 95
+percentile_method = "nearest_rank"
+
+[pilot]
+scenarios = ["idle", "upload", "download", "burst"]
+sessions_per_scenario = 1
+
+[load]
+traffic_tool = "iperf3"
+calibration_runs_per_direction = 3
+calibration_run_seconds = 30
+sustained_rate_fraction = 0.70
+burst_rate_fraction = 0.90
+upload_parallel_streams = 1
+download_parallel_streams = 1
+
+[burst]
+duration_seconds = 900
+start_delay_seconds = 30
+on_min_seconds = 10
+on_max_seconds = 20
+off_min_seconds = 20
+off_max_seconds = 40

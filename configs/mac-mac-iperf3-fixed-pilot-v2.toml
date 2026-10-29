@@ -1,0 +1,44 @@
+# Draft fixed-sender-target trial; not a frozen formal campaign.
+# New MacBook: Wi-Fi collector/client. Old MacBook: Ethernet ICMP target/server.
+[experiment]
+id = "mac-mac-iperf3-fixed-pilot-v2"
+status = "draft"
+probe_protocol = "icmp_echo"
+probe_payload_bytes = 56
+probe_interval_seconds = 1.0
+probe_timeout_ms = 800
+max_start_lateness_ms = 250
+session_duration_seconds = 900
+warmup_seconds = 0
+
+[topology]
+source_link = "wifi"
+target_link = "ethernet"
+
+[prediction]
+history_samples = 60
+future_samples = 60
+window_stride_samples = 10
+minimum_successful_probes = 57
+target_percentile = 95
+percentile_method = "nearest_rank"
+
+[pilot]
+scenarios = ["idle", "upload", "download", "burst"]
+sessions_per_scenario = 1
+
+[load]
+traffic_tool = "iperf3"
+upload_parallel_streams = 1
+download_parallel_streams = 1
+upload_target_bps = 300000000
+download_target_bps = 300000000
+burst_target_bps = 350000000
+
+[burst]
+duration_seconds = 900
+start_delay_seconds = 30
+on_min_seconds = 10
+on_max_seconds = 20
+off_min_seconds = 20
+off_max_seconds = 40

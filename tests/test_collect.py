@@ -12,6 +12,9 @@ from netpulse.collect import classify_ping, collect, load_config, local_ipv4, pr
 
 CONFIG_PATH = Path(__file__).resolve().parents[1] / "configs" / "pilot.toml"
 FROZEN_CONFIG_PATH = Path(__file__).resolve().parents[1] / "configs" / "m0-v1.toml"
+MAC_PILOT_CONFIG_PATH = Path(__file__).resolve().parents[1] / "configs" / "mac-mac-iperf3-pilot.toml"
+MAC_PILOT_V1_CONFIG_PATH = Path(__file__).resolve().parents[1] / "configs" / "mac-mac-iperf3-pilot-v1.toml"
+MAC_FORMAL_CONFIG_PATH = Path(__file__).resolve().parents[1] / "configs" / "mac-mac-iperf3-v1.toml"
 
 
 class PilotConfigTests(unittest.TestCase):
@@ -28,6 +31,37 @@ class PilotConfigTests(unittest.TestCase):
         self.assertEqual((config.experiment_id, config.status), ("m0-v1", "frozen"))
         self.assertEqual(config.minimum_successful_probes, 57)
         self.assertEqual(config.scenarios, ("idle", "upload", "download", "burst"))
+
+    def test_loads_new_mac_to_mac_pilot_without_changing_probe_rules(self):
+        old = load_config(FROZEN_CONFIG_PATH)
+        new = load_config(MAC_PILOT_CONFIG_PATH)
+        self.assertEqual((new.experiment_id, new.status), ("mac-mac-iperf3-pilot-v0", "draft"))
+        self.assertEqual((new.source_link, new.target_link), ("ethernet", "wifi"))
+        self.assertEqual((new.timeout_ms, new.history_samples, new.future_samples, new.minimum_successful_probes),
+                         (old.timeout_ms, old.history_samples, old.future_samples, old.minimum_successful_probes))
+
+    def test_loads_reversed_mac_to_mac_pilot(self):
+        old = load_config(MAC_PILOT_CONFIG_PATH)
+        new = load_config(MAC_PILOT_V1_CONFIG_PATH)
+        self.assertEqual((new.experiment_id, new.status), ("mac-mac-iperf3-pilot-v1", "draft"))
+        self.assertEqual((new.source_link, new.target_link), ("wifi", "ethernet"))
+        self.assertEqual((new.timeout_ms, new.history_samples, new.future_samples, new.minimum_successful_probes),
+                         (old.timeout_ms, old.history_samples, old.future_samples, old.minimum_successful_probes))
+        self.assertEqual(new.warmup_seconds, 0)
+
+    def test_negative_warmup_is_rejected(self):
+        source = MAC_PILOT_V1_CONFIG_PATH.read_text(encoding="utf-8")
+        with tempfile.TemporaryDirectory() as temporary:
+            config_path = Path(temporary) / "pilot.toml"
+            config_path.write_text(source.replace("warmup_seconds = 0", "warmup_seconds = -1", 1), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "non-negative integer"):
+                load_config(config_path)
+
+    def test_formal_config_is_frozen_and_distinct_from_pilot(self):
+        formal = load_config(MAC_FORMAL_CONFIG_PATH)
+        self.assertEqual((formal.experiment_id, formal.status), ("mac-mac-iperf3-v1", "frozen"))
+        self.assertEqual((formal.source_link, formal.target_link), ("wifi", "ethernet"))
+        self.assertEqual((formal.duration_seconds, formal.warmup_seconds), (900, 0))
 
     def test_target_must_be_local_ipv4(self):
         self.assertEqual(local_ipv4("192.168.1.2"), "192.168.1.2")
